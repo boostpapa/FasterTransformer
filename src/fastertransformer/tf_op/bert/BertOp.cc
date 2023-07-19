@@ -100,7 +100,7 @@ public:
             activation_type_ = ft::getActivationType(activation_type);
 
             std::string layernorm_type;
-            OP_REQUIRES_OK(context, context->GetAttr("layernorm_type", &layernorm_type_));
+            OP_REQUIRES_OK(context, context->GetAttr("layernorm_type", &layernorm_type));
             layernorm_type_ = ft::getLayerNormType(layernorm_type);
 
             sm_              = ft::getSMVersion();
