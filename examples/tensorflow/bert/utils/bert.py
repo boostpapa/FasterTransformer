@@ -387,7 +387,8 @@ def ft_bert(inputs,
             head_num = encoder_args.head_num, size_per_head = encoder_args.size_per_head,
             inter_size = encoder_args.inter_size,
             num_layer = encoder_args.num_layer, remove_padding=encoder_args.remove_padding,
-            q_scaling = 1.0)
+            q_scaling = 1.0,
+            activation_type = "gelu", layernorm_type = "post_layernorm")
     else:
         outputs = transformer_op_module.bert_int8(
             inputs,
@@ -416,5 +417,6 @@ def ft_bert(inputs,
             num_layer = encoder_args.num_layer,
             int8_mode = encoder_args.int8_mode,
             remove_padding=encoder_args.remove_padding,
-            q_scaling = 1.0)
+            q_scaling = 1.0,
+            activation_type = "gelu", layernorm_type = "post_layernorm")
     return outputs

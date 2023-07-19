@@ -52,6 +52,8 @@ REGISTER_OP("Bert")
     .Attr("num_layer: int >= 1")
     .Attr("remove_padding: bool")
     .Attr("q_scaling: float")
+    .Attr("activation_type: {'relu', 'gelu'}")
+    .Attr("layernorm_type: {'pre_layernorm', 'post_layernorm'}")
     .SetShapeFn([](tf::shape_inference::InferenceContext* c) {
         c->set_output(0, c->input(0));
         return tf::Status::OK();
@@ -92,6 +94,15 @@ public:
             OP_REQUIRES_OK(context, context->GetAttr("num_layer", &num_layer_));
             OP_REQUIRES_OK(context, context->GetAttr("remove_padding", &remove_padding_));
             OP_REQUIRES_OK(context, context->GetAttr("q_scaling", &q_scaling_));
+
+            std::string activation_type;
+            OP_REQUIRES_OK(context, context->GetAttr("activation_type", &activation_type));
+            activation_type_ = ft::getActivationType(activation_type);
+
+            std::string layernorm_type;
+            OP_REQUIRES_OK(context, context->GetAttr("layernorm_type", &layernorm_type_));
+            layernorm_type_ = ft::getLayerNormType(layernorm_type);
+
             sm_              = ft::getSMVersion();
             cublas_algo_map_ = new ft::cublasAlgoMap("gemm_config.in");
         }
@@ -205,8 +216,8 @@ public:
                                                      true,
                                                      attention_type,
                                                      false,
-                                                     ft::ActivationType::Gelu,
-                                                     ft::LayerNormType::post_layernorm);
+                                                     activation_type_,
+                                                     layernorm_type_);
 
         tf::Tensor* output = nullptr;
         OP_REQUIRES_OK(context, context->allocate_output(0, context->input(0).shape(), &output));
@@ -241,6 +252,8 @@ private:
     bool                               remove_padding_;
     int                                sm_;
     ft::cublasAlgoMap*                 cublas_algo_map_;
+    ft::ActivationType                 activation_type_;
+    ft::LayerNormType                  layernorm_type_;
     typedef TFTraits<T>                traits_;
     typedef typename traits_::DataType DataType;
 };
