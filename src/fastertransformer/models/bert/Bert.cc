@@ -623,7 +623,7 @@ void Bert<T>::forward(TensorMap* output_tensors, TensorMap* input_tensors, const
         }  // transformer layers
 
         if (pipeline_para_.rank_ == pipeline_para_.world_size_ - 1) {
-            if (layernorm_type_ == LayerNormType::pre_layernorm) {
+            if (layernorm_type_ == LayerNormType::pre_layernorm && bert_weights->post_transformer_layernorm_weights.gamma != nullptr) {
                 invokeGeneralLayerNorm(bert_output_ptr,
                                        bert_output_ptr,
                                        bert_weights->post_transformer_layernorm_weights.gamma,

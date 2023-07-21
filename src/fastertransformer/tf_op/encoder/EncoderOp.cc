@@ -43,8 +43,6 @@ REGISTER_OP("Encoder")
     .Input("inter_bias: N * T")
     .Input("output_kernel: N * T")
     .Input("output_bias: N * T")
-    .Input("layernorm_beta: T")
-    .Input("layernorm_gamma: T")
     .Output("output: T")
     .Attr("N: int")
     .Attr("T: {float, half}")
@@ -74,6 +72,14 @@ public:
     typedef half DataType;
 };
 
+#ifdef ENABLE_BF16
+template<>
+class TFTraits<Eigen::bfloat16> {
+public:
+    typedef __nv_bfloat16 DataType;
+};
+#endif
+
 template<typename Device, typename T>
 class EncoderOp: public BaseOp<T> {
 public:
@@ -102,7 +108,7 @@ public:
     void Compute(tf::OpKernelContext* context) override
     {
         OP_REQUIRES(context,
-                    context->num_inputs() == (num_layer_ * 16) + 5,
+                    context->num_inputs() == (num_layer_ * 16) + 3,
                     tf::errors::InvalidArgument("[ERROR] More or Less input arguments"));
 
         const size_t batch_size_   = (size_t)context->input(0).dim_size(0);
@@ -126,6 +132,11 @@ public:
         if (std::is_same<T, Eigen::half>::value) {
             cublas_wrapper.setFP16GemmConfig();
         }
+#ifdef ENABLE_BF16
+        else if (std::is_same<T, Eigen::bfloat16>::value) {
+            cublas_wrapper.setBF16GemmConfig();
+        }
+#endif
         else if (std::is_same<T, float>::value) {
             cublas_wrapper.setFP32GemmConfig();
         }
@@ -181,8 +192,10 @@ public:
                              3 + num_layer_ * 15 + i,
                              &encoder_weights.bert_layer_weights[i].ffn_weights.output_weight.bias);
         }
-        this->get_tensor(context, 3 + num_layer_ * 16, &encoder_weights.post_transformer_layernorm_weights.beta);
-        this->get_tensor(context, 4 + num_layer_ * 16, &encoder_weights.post_transformer_layernorm_weights.gamma);
+        //this->get_tensor(context, 3 + num_layer_ * 16, &encoder_weights.post_transformer_layernorm_weights.beta);
+        //this->get_tensor(context, 4 + num_layer_ * 16, &encoder_weights.post_transformer_layernorm_weights.gamma);
+        encoder_weights.post_transformer_layernorm_weights.gamma = nullptr;
+        encoder_weights.post_transformer_layernorm_weights.beta  = nullptr;
 
         ft::AttentionType attention_type =
             ft::getAttentionType<DataType>(size_per_head_, sm_, remove_padding_, from_seq_len_);
@@ -223,11 +236,13 @@ public:
         }
         catch (std::runtime_error& error) {
             std::cout << tf::errors::Internal(error.what());
-            exit(-1);
+            ft::FT_CHECK(false);
+            //exit(-1);
         }
         catch (...) {
             std::cout << tf::errors::Internal("Runtime error");
-            exit(-1);
+            ft::FT_CHECK(false);
+            //exit(-1);
         }
     }
 
